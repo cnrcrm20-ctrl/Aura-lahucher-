@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Aura</string>
+    <string name="launcher_full_name">Aura Launcher</string>
+    <string name="search_apps_hint">Search installed apps…</string>
+    <string name="all_apps">All Apps</string>
+    <string name="favorites">Favorites</string>
+    <string name="quick_access">Quick Dock</string>
+    <string name="open_app">Open</string>
+    <string name="app_info">App Info</string>
+    <string name="pin_to_home">Pin to Dock</string>
+    <string name="unpin_from_home">Remove from Dock</string>
+    <string name="uninstall_app">Uninstall</string>
+    <string name="set_default_launcher">Set as Default Home</string>
+    <string name="set_default_desc">Tap to select Aura Launcher as your device\'s default Home app in Android Settings.</string>
+    <string name="empty_search_title">No matching apps found</string>
+    <string name="empty_search_desc">Check spelling or clear the search query.</string>
+    <string name="swipe_up_hint">Swipe up or tap for all apps</string>
+    <string name="launcher_settings">Launcher Settings</string>
+    <string name="error_launching_app">Unable to launch this application</string>
+    <string name="app_uninstalled_toast">Application was uninstalled</string>
+</resources>

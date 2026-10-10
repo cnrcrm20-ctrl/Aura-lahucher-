@@ -1,0 +1,6 @@
+{
+  "name": "Aura Launcher",
+  "description": "A sleek, native Android launcher with a responsive app drawer, instant search, customizable home dock, and modern dark aesthetics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
