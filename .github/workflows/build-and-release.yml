@@ -32,15 +32,18 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: 11076708
-
-      - name: Accept Android Licenses & SDK Components
+      - name: Accept Android SDK Licenses & Install Components
         run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0" || true
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find $ANDROID_HOME/cmdline-tools -name sdkmanager 2>/dev/null | head -n 1)
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          if [ -n "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses || true
+            "$SDKMANAGER" "platform-tools" "platforms;android-35" || true
+          fi
 
       - name: Setup Build Environment & Keystores
         run: |
