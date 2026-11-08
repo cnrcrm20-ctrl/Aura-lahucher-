@@ -1,0 +1,156 @@
+name: Build and Release Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release Tag (e.g. v1.0.0)'
+        required: false
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 11076708
+
+      - name: Accept Android Licenses & SDK Components
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-36" "platforms;android-35" "build-tools;36.0.0" "build-tools;35.0.0" || true
+
+      - name: Setup Build Environment & Keystores
+        run: |
+          # Create .env if missing for secrets plugin
+          if [ ! -f .env ]; then
+            cp .env.example .env 2>/dev/null || touch .env
+          fi
+
+          # Ensure gradlew has executable permission
+          chmod +x ./gradlew
+
+          # Generate release keystore for production signing
+          keytool -genkeypair -v \
+            -keystore my-upload-key.jks \
+            -alias upload \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass aura_launcher_2026 \
+            -keypass aura_launcher_2026 \
+            -dname "CN=AuraLauncher, OU=Mobile, O=Aura, L=Istanbul, ST=TR, C=TR"
+
+          # Generate debug keystore
+          keytool -genkeypair -v \
+            -keystore debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug, O=Android, C=US"
+
+      - name: Build Release APK with Gradle
+        env:
+          KEYSTORE_PATH: my-upload-key.jks
+          STORE_PASSWORD: aura_launcher_2026
+          KEY_PASSWORD: aura_launcher_2026
+          KEY_ALIAS: upload
+        run: |
+          ./gradlew assembleRelease --stacktrace --no-daemon -x test
+
+      - name: Prepare Release Artifacts
+        id: prepare_apk
+        run: |
+          mkdir -p artifacts
+          APK_FILE=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+          fi
+          
+          echo "Selected APK: $APK_FILE"
+          if [ -z "$APK_FILE" ]; then
+            echo "ERROR: No APK generated!"
+            exit 1
+          fi
+
+          cp "$APK_FILE" artifacts/AuraLauncher-v1.0.apk
+          sha256sum artifacts/AuraLauncher-v1.0.apk > artifacts/AuraLauncher-v1.0.apk.sha256
+          
+          APK_SIZE=$(ls -lh artifacts/AuraLauncher-v1.0.apk | awk '{print $5}')
+          echo "APK Size: $APK_SIZE"
+          echo "apk_size=$APK_SIZE" >> $GITHUB_OUTPUT
+
+      - name: Upload APK as Workflow Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AuraLauncher-v1.0-APK
+          path: artifacts/*
+          retention-days: 30
+
+      - name: Determine Release Tag
+        id: tag_step
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            TAG="${{ github.event.inputs.release_tag }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            TAG="v1.0.0"
+          fi
+          echo "release_tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_step.outputs.release_tag }}
+          name: "Aura Launcher ${{ steps.tag_step.outputs.release_tag }}"
+          body: |
+            # 🚀 Aura Launcher ${{ steps.tag_step.outputs.release_tag }}
+            
+            Modern, fluid, minimal Android Launcher crafted with Jetpack Compose & Material 3.
+            
+            ### 📱 Download & Install
+            - **Direct APK**: [AuraLauncher-v1.0.apk](https://github.com/${{ github.repository }}/releases/download/${{ steps.tag_step.outputs.release_tag }}/AuraLauncher-v1.0.apk)
+            - **Package**: `com.aistudio.launcher.auraxq`
+            - **Version**: 1.0 (Code 1)
+            - **Minimum Android**: Android 7.0+ (API 24+)
+            - **Target Android**: Android 15/16 (API 36)
+            
+            ### 🌟 Key Features
+            - ⚡ Fast App Drawer with instant search & fuzzy indexing
+            - 🌌 Celestial dynamic wallpaper engine & customizable particle intensity
+            - 🗂️ Customizable bottom quick dock & app shortcuts
+            - 💎 Liquid Glass & OLED minimal themes with customizable accent colors
+            - 🔒 Signed release build ready for direct sideloading on Android devices
+          files: |
+            artifacts/AuraLauncher-v1.0.apk
+            artifacts/AuraLauncher-v1.0.apk.sha256
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
